@@ -1,0 +1,103 @@
+---
+title: "CSE6242"
+author: "Mahaveer Jain"
+date: "11/27/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(glmnet)
+library(tidyverse)
+library(lubridate)
+```
+
+## R Markdown
+Read the data and convert the Fips as a factor 
+
+```{r cars}
+bData = read.csv('allData.csv', header = TRUE)
+bData$Fips =  as.factor(bData$Fips)
+bData$datetime = ymd(bData$datetime)
+bData.time = subset(bData , select = c(datetime, Fips))
+#bData  = subset(bData , select = -datetime)
+bData  = subset(bData , select = -HPI)
+bData  = subset(bData , select = -total_number_hpa)
+#create minimum and max model
+hFull = lm(HPI_inf~. -  datetime, data = bData)
+hLow = lm(HPI_inf~ 1, data = bData)
+```
+
+## Including Plots
+
+Perform forward variable selection model
+
+```{r pressure, echo=FALSE}
+step(hLow, scope=list(lower=hLow, 
+     upper=hFull), direction="forward")
+```
+
+Perform elastic Net and lasso model to see if the variables selection differ
+```{r}
+set.seed(100)
+elasticmodel.cv = cv.glmnet(data.matrix(subset(bData , select = -c(datetime, HPI_inf))), y = bData$HPI_inf, alpha=0.5, nfolds=10, type.measure = "mse",  family="gaussian")
+
+elasticmodel = glmnet(data.matrix(subset(bData , select = -c(datetime, HPI_inf))), y = bData$HPI_inf, alpha=0.5, nlambda=100,  family="gaussian")
+
+index.elastic <- which(coef(elasticmodel, elasticmodel.cv$lambda.min) == 0)
+
+```
+```{r}
+set.seed(100)
+lassomodel.cv = cv.glmnet(data.matrix(subset(bData , select = -c(datetime, HPI_inf))), y = bData$HPI_inf, alpha=1, nfolds=10, type.measure = "mse",  family="gaussian")
+
+## Fit lasso model with 100 values for lambda
+lassomodel = glmnet(data.matrix(subset(bData , select = -c(datetime, HPI_inf))), y = bData$HPI_inf, alpha=1, nlambda=100,  family="gaussian")
+index.lasso <- which(coef(lassomodel, lassomodel.cv$lambda.min) == 0)
+```
+
+
+Build the model using forward variable selection method.
+```{r}
+bubbleModel = lm(HPI_inf ~ total_number_hpa_seasonality + Real.Estate_seasonality + Unemployment.Rate + zillow_seasonality  + Realtor_seasonality + CCI + Population  + Apartment_seasonality   +
+Real.Estate.Agent_seasonality + Rent_seasonality	+ Fips, data = bData)
+summary(bubbleModel)
+```
+Estimate the predicted value and combine with actual value for each state.
+
+```{r}
+y = predict(bubbleModel, bData)
+
+data = subset(bData, select = c(datetime, HPI_inf, Fips))
+data['HPI_pre'] = y
+```
+
+Plot the data
+```{r}
+library(scales)
+data[data['Fips']==6,] %>% 
+  ggplot( aes(x=datetime)) +
+   geom_line(aes(y = HPI_pre), color = "darkred") +
+   geom_line(aes(y = HPI_inf), color = "steelblue") +
+  scale_x_date(breaks="year", labels=date_format("%Y"))
+   
+# + ylim(0,22000) +
+#    annotate(geom="text", x=as.Date("2017-01-01"), y=20089, 
+#             label="Bitcoin price reached 20k $\nat the end of 2017") +
+#    annotate(geom="point", x=as.Date("2017-12-17"), y=20089, size=10, shape=21, fill="transparent") +
+#    geom_hline(yintercept=5000, color="orange", size=.5) +
+#    theme_ipsum()
+```
+Plot the fraction of true HPI and estimated HPI
+
+```{r}
+data[data['Fips']==6,] %>% 
+  ggplot( aes(x=datetime, color = Fips)) +
+   geom_line(aes(y = HPI_inf/HPI_pre)) +
+  scale_x_date(breaks="year", labels=date_format("%Y"))
+```
+> data %>% 
++     ggplot( aes(x=datetime, color = Fips)) +
++     geom_line(aes(y = HPI_pre/HPI_inf)) +
++     scale_x_date(breaks="year", labels=date_format("%Y"))
+

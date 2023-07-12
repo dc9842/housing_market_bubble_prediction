@@ -1,0 +1,16 @@
+Housing Price Index: Quaterly and need to extend till 2005  
+: Seasonality corrected
+Disposable Personal Income :  Need to retrive at country level https://www.bea.gov/data/income-saving/disposable-personal-income
+: Seasonality - Unknown, need confirmation
+Housing Permits Authorised : Extend to 2005
+: Seasonality - not,
+Unemployment Rate :  Currently it was nation wise, should be statewise. Data can be downloaded from https://download.bls.gov/pub/time.series/la/ using script
+: Seasonality corrected. 
+
+Interest Rate : Done
+: Seasonality not required
+Population : Done
+: Seasonality not required
+
+Google Search Volume Index : Done
+Consumer Confidence Index :  Done, adjusted 
